@@ -35,16 +35,18 @@ namespace ILT
                         IntPtr hSrcDC = gsrc.GetHdc();
                         IntPtr hDC = gdest.GetHdc();
                         int retval = BitBlt(hDC, 0, 0, 1, 1, hSrcDC, location.X, location.Y, (int)CopyPixelOperation.SourceCopy);
-                        gdest.ReleaseHdc();
-                        gsrc.ReleaseHdc();
+                        gdest.ReleaseHdc(hDC);
+                        gsrc.ReleaseHdc(hSrcDC);
                     }
                     catch (System.ArgumentException)
                     {
-                        Console.WriteLine("Error occured");
+                        return Color.Transparent;
                     }
                 }
             }
-            return screenPixel.GetPixel(0, 0);
+            Color res = screenPixel.GetPixel(0, 0);
+            screenPixel.Dispose();
+            return res;
         }
     }
 }

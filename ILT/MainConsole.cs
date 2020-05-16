@@ -15,6 +15,7 @@ namespace ILT
         public static int count = 200;
         public static List<Tuple<string, Action>> menuActions = new List<Tuple<string, Action>>();
         public static bool finished = false;
+        public static Point targetPixel = new Point(0,0);
 
         static void Main(string[] args)
         {
@@ -25,7 +26,7 @@ namespace ILT
             {
                 PrintMenu();
                 choiceString = Console.ReadLine();
-                if (int.TryParse(choiceString, out choice) && choice < menuActions.Count)
+                if (int.TryParse(choiceString, out choice) &&  0 <= choice && choice < menuActions.Count)
                 {
                     menuActions[choice].Item2();
                 }
@@ -40,6 +41,7 @@ namespace ILT
         {
             Console.WriteLine("######################");
             Console.WriteLine("Measures done per command : " + count);
+            Console.WriteLine("Currently checked pixel : " + targetPixel);
             Console.WriteLine("Actions:");
             for (int i = 0; i < menuActions.Count; i++)
             {
@@ -67,17 +69,54 @@ namespace ILT
             }
         }
 
+        static void SetPixel()
+        {
+            char[] trimChars = { ' ', '(', ')', '\n'};
+            char[] separators = { ',' };
+            int x = 0, y = 0;
+            bool ok = true;
+            Console.WriteLine("Note : will totally crash if you enter out of screen values");
+            Console.WriteLine("Coords ? enter it like this : (x,y)");
+            string pixelString = Console.ReadLine();
+            if (pixelString.Equals("(x,y)"))
+            {
+                Console.WriteLine("Think harder about it, bro");
+            }
+            pixelString = pixelString.Trim(trimChars);
+            string[] coords = pixelString.Split(separators);
+
+            ok = (coords.Length == 2);
+            if (ok)
+            {
+                ok = ok && int.TryParse(coords[0], out x);
+                ok = ok && int.TryParse(coords[1], out y);
+            }
+
+            if (ok)
+            {
+                targetPixel = new Point(x, y);
+                Console.WriteLine("Pixel to check is now : "+targetPixel);
+            }
+            else
+            {
+                Console.WriteLine("Invalid format");
+            }
+
+        }
+
         static void InputLagMeasure()
         {
+            Console.WriteLine("Starting in 2s.");
             Random rand = new Random();
             Thread.Sleep(2000);
-            Point p = new Point(1500, 2);
+            Console.WriteLine("Measuring ...");
             long t1, t2, t3, t4;
             long diff, diffR;
             //Values measured after a press
             long average, max, min;
             //Values measured after a release
             long averageR, maxR, minR;
+            Color currentColor;
 
             min = minR = 9999999999;//dirty but idc
             max = maxR = 0;
@@ -98,15 +137,33 @@ namespace ILT
                 t1 = s.ElapsedMilliseconds;
                 InputGen.Send(InputGen.ScanCodeShort.SPACE);
                 //Wait for screen to go red
-                while (!IsColorRed(ScreenChecker.GetColorAt(p))) ;
+                currentColor = ScreenChecker.GetColorAt(targetPixel);
+                while (!IsColorRed(currentColor) && currentColor != Color.Transparent)
+                {
+                    currentColor = ScreenChecker.GetColorAt(targetPixel);
+                }
                 t2 = s.ElapsedMilliseconds;
+
+                if(currentColor == Color.Transparent)
+                {
+                    UnexpectedError();
+                }
 
                 Thread.Sleep(rand.Next(0,1000) / framerate);
                 t3 = s.ElapsedMilliseconds;
                 InputGen.Release(InputGen.ScanCodeShort.SPACE);
                 //Wait for screen to go blue
-                while (IsColorRed(ScreenChecker.GetColorAt(p))) ;
+                currentColor = ScreenChecker.GetColorAt(targetPixel);
+                while (IsColorRed(currentColor) && currentColor != Color.Transparent)
+                {
+                    currentColor = ScreenChecker.GetColorAt(targetPixel);
+                }
                 t4 = s.ElapsedMilliseconds;
+
+                if (currentColor == Color.Transparent)
+                {
+                    UnexpectedError();
+                }
 
                 //milliseconds needed for screen color to change after inputing
                 diff = t2 - t1;
@@ -121,7 +178,7 @@ namespace ILT
                 maxR = diffR > maxR ? diffR : maxR;
                 averageR += diffR;
 
-                Console.WriteLine(diff +"->"+diffR);
+                Console.WriteLine(i+") "+diff +"->"+diffR);
                 
             }
 
@@ -146,6 +203,15 @@ namespace ILT
             menuActions.Add(new Tuple<string, Action>("Exit", Exit));
             menuActions.Add(new Tuple<string, Action>("Input lag measure", InputLagMeasure));
             menuActions.Add(new Tuple<string, Action>("Set the amount of measures per command", SetCount));
+            menuActions.Add(new Tuple<string, Action>("Change what pixel is checked", SetPixel));
+        }
+
+        static void UnexpectedError()
+        {
+            Console.WriteLine("An error occured");
+            Console.WriteLine("Press enter to exit.");
+            Console.ReadLine();
+            System.Environment.Exit(1);
         }
     }
 }
